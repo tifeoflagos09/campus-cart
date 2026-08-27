@@ -1,6 +1,6 @@
 # CampusCart
 
-> A command-line tool that helps campus vendors track stock, calculate cart totals, and generate receipts.
+> A fast, no-fuss command-line tool for managing campus vendor sales from start to finish.
 
 ---
 
