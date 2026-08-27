@@ -1,6 +1,6 @@
 # CampusCart
 
-> A lightweight, free-to-use tool built for campus vendors to manage stock, totals, and receipts.
+> A lightweight, fast command-line tool that helps campus vendors manage stock, totals, and receipts.
 
 ---
 
