@@ -39,6 +39,8 @@ Campus vendors, including small food sellers and pop-up shops, typically manage 
 | **Vendor** | Campus food or goods seller | A reliable way to track stock and calculate totals accurately during high-demand periods |
 | **Customer** | Student purchasing from a vendor | An accurate total and a clear receipt with minimal wait time |
 
+Understanding these two perspectives ensures CampusCart supports both sides of a transaction, not just inventory management in isolation.
+
 ## Proposed CLI Interface
 
 ```
