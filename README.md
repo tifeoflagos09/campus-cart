@@ -1,6 +1,6 @@
 # CampusCart
 
-> A fast, no-fuss command-line tool for managing campus vendor sales from start to finish.
+> A lightweight, fast command-line tool that helps campus vendors manage stock, totals, and receipts.
 
 ---
 
