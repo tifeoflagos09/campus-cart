@@ -54,3 +54,35 @@ Welcome to CampusCart
 
 Select an option: _
 ```
+## Getting Started
+
+The CLI application has been built in Python. To run it:
+
+​```
+python main.py
+​```
+
+This launches the interactive menu shown below.
+
+## CLI Demo
+
+### Viewing Stock
+![View stock](screenshots/view-stock-demo.png)
+
+### Adding a New Item
+![Add new item](screenshots/add-item-demo.png)
+
+### Preventing Duplicate Product IDs
+![Duplicate ID rejected](screenshots/duplicate-id-demo.png)
+
+### Updating Stock Quantity
+![Update stock quantity](screenshots/update-stock-demo.png)
+
+### Updating Price
+![Update price](screenshots/update-price-demo.png)
+
+### Generating a Receipt
+![Receipt with discount applied](screenshots/receipt-demo.png)
+
+### Exiting the Program
+![Exit confirmation](screenshots/exit-demo.png)
