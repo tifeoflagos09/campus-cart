@@ -4,6 +4,7 @@ A command-line tool for campus vendors to manage stock,
 calculate totals, and generate receipts.
 """
 
+# Nested dictionary: {product_id: {name, price, stock}}
 inventory = {
     "101": {"name": "Notebook", "price": 200, "stock": 30},
     "102": {"name": "Pen", "price": 100, "stock": 40},
@@ -14,8 +15,10 @@ inventory = {
     "107": {"name": "Spiral Bind", "price": 300, "stock": 30},
 }
 
+# Cart resets at the start of each checkout
 cart = []
 
+# Main menu loop, runs until the user exits
 while True:
     print("Welcome to CampusCart")
     print("======================")
@@ -27,10 +30,13 @@ while True:
 
     choice = input("Select an option (1-5): ")
 
+    # View Stock: display all products currently in inventory
     if choice == "1":
         print("\nCurrent Stock:")
         for item_id, details in inventory.items():
             print(f"{item_id}: {details['name']} - ₦{details['price']} ({details['stock']} in stock)")
+
+    # Add New Item: create a new product, blocked if the ID already exists
     elif choice == "2":
         new_id = input("Enter new product ID: ")
 
@@ -43,6 +49,8 @@ while True:
 
             inventory[new_id] = {"name": new_name, "price": new_price, "stock": new_stock}
             print(f"\n{new_name} added to inventory!")
+
+    # Update Stock: modify quantity or price for an existing product
     elif choice == "3":
         item_id = input("Enter product ID to update: ")
 
@@ -64,6 +72,8 @@ while True:
                 print("\nInvalid option.")
         else:
             print("\nProduct ID not found.")
+
+    # Generate Receipt: build cart, validate stock, calculate total, apply discount
     elif choice == "4":
         cart = []
         while True:
@@ -78,6 +88,7 @@ while True:
 
             qty = int(input("Enter quantity: "))
 
+            # Track quantity already reserved this session for accurate stock checks
             already_in_cart = 0
             for entry in cart:
                 if entry["id"] == item_id:
@@ -103,6 +114,7 @@ while True:
                 print(f"{item_name} x{entry['qty']} - ₦{entry['subtotal']}")
                 total += entry["subtotal"]
 
+            # 10% discount on orders over ₦2000
             if total > 2000:
                 discount = total * 0.1
                 total -= discount
@@ -114,8 +126,11 @@ while True:
 
             for entry in cart:
                 inventory[entry["id"]]["stock"] -= entry["qty"]
+
+    # Exit the program
     elif choice == "5":
         print("Goodbye!")
         break
+
     else:
         print("You selected:", choice)
