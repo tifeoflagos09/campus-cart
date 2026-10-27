@@ -1,115 +1,335 @@
 """
-CampusCart CLI
-A command-line tool that lets students browse campus vendor
-products, build a cart, and generate a receipt at checkout.
+CampusCart CLI.
+
+Connects inventory, cart management, receipts,
+and transaction logging.
 """
 
-inventory = {
-    "101": {"name": "Notebook", "price": 200, "stock": 30},
-    "102": {"name": "Pen", "price": 100, "stock": 40},
-    "103": {"name": "Calculator", "price": 2000, "stock": 30},
-    "104": {"name": "Stapler", "price": 2500, "stock": 25},
-    "105": {"name": "A4 Paper", "price": 3000, "stock": 25},
-    "106": {"name": "Document Folder", "price": 150, "stock": 20},
-    "107": {"name": "Spiral Bind", "price": 300, "stock": 30},
-}
+from inventory import (
+    show_inventory,
+    is_stock_available,
+    update_item_stock,
+    filter_in_stock,
+    sort_by_price,
+)
 
-cart = []
+from cart import (
+    add_to_cart,
+    remove_from_cart,
+    calculate_totals,
+    stream_receipt_lines,
+)
 
-while True:
-    print("================================")
-    print("          CAMPUSCART")
-    print("================================")
-    print("1. View Inventory")
-    print("2. Add Item to Cart")
-    print("3. View Cart")
-    print("4. Checkout")
-    print("5. Exit")
+from logger import log_transaction, summarize_logs
 
-    choice = input("Select an option (1-5): ")
 
-    if choice == "1":
-        print(f"\n{'ID':<6}{'Product':<18}{'Price':<10}{'Stock':<6}")
-        print("-" * 40)
-        for item_id, details in inventory.items():
-            print(f"{item_id:<6}{details['name']:<18}₦{details['price']:<9}{details['stock']:<6}")
-        print()
+def create_inventory():
+    """Create fresh inventory for each application session."""
+    return {
+        "101": {"name": "Notebook", "price": 200, "stock": 30},
+        "102": {"name": "Pen", "price": 100, "stock": 40},
+        "103": {"name": "Calculator", "price": 2000, "stock": 30},
+        "104": {"name": "Stapler", "price": 2500, "stock": 25},
+        "105": {"name": "A4 Paper", "price": 3000, "stock": 25},
+        "106": {
+            "name": "Document Folder",
+            "price": 150,
+            "stock": 20,
+        },
+        "107": {"name": "Spiral Bind", "price": 300, "stock": 30},
+    }
 
-    elif choice == "2":
-        item_id = input("Enter product ID: ")
 
-        if item_id not in inventory:
-            print("Product ID not found.\n")
-            continue
+def read_product_id(inventory, prompt="Enter product ID: "):
+    """Validate the product ID before asking for a quantity."""
+    item_id = input(prompt).strip()
+
+    if not item_id or not item_id.isascii() or not item_id.isdigit():
+        raise ValueError(
+            "Product ID must contain digits only, such as 103."
+        )
+
+    if item_id not in inventory:
+        raise ValueError(
+            "Product ID not found. Choose an ID from inventory."
+        )
+
+    return item_id
+
+
+def read_quantity(prompt, maximum):
+    """Accept positive whole numbers within the available quantity."""
+    text = input(prompt).strip()
+
+    if not text or not text.isascii() or not text.isdigit():
+        raise ValueError(
+            "Quantity must be a whole number greater than zero."
+        )
+
+    try:
+        quantity = int(text)
+    except ValueError:
+        raise ValueError(
+            "Enter a smaller whole-number quantity."
+        ) from None
+
+    if quantity <= 0:
+        raise ValueError("Quantity must be greater than zero.")
+
+    if quantity > maximum:
+        raise ValueError(
+            f"You can select at most {maximum} units."
+        )
+
+    return quantity
+
+
+def show_cart(cart, inventory):
+    """Display the basket and its estimated checkout total."""
+    if not cart:
+        print("Your cart is empty.")
+        return
+
+    print("\nYOUR CART")
+    print("-" * 44)
+
+    for entry in cart:
+        name = inventory[entry["id"]]["name"]
+        print(
+            f"{name} x {entry['qty']}: "
+            f"₦{entry['subtotal']:,.2f}"
+        )
+
+    totals = calculate_totals(cart)
+
+    print(f"Subtotal: ₦{totals['subtotal']:,.2f}")
+    print(f"Discount: ₦{totals['discount']:,.2f}")
+    print(f"Total:    ₦{totals['total']:,.2f}")
+
+
+@log_transaction("CHECKOUT")
+def checkout_cart(cart, inventory):
+    """Validate the cart, capture a receipt, and deduct stock."""
+    if not cart:
+        raise ValueError(
+            "Your cart is empty. Add items before checkout."
+        )
+
+    requested = {}
+
+    for entry in cart:
+        quantity = entry["qty"]
+
+        if type(quantity) is not int or quantity <= 0:
+            raise ValueError(
+                "Cart quantities must be positive whole numbers."
+            )
+
+        item_id = entry["id"]
+        requested[item_id] = requested.get(item_id, 0) + quantity
+
+    # Validate every product before changing stock.
+    for item_id, quantity in requested.items():
+        if not is_stock_available(inventory, item_id, quantity):
+            raise ValueError(
+                f"Stock is unavailable for product {item_id}. "
+                "Review your cart."
+            )
+
+    # Capture the receipt before clearing the cart.
+    receipt = "\n".join(
+        stream_receipt_lines(cart, inventory)
+    )
+    totals = calculate_totals(cart)
+
+    original_stock = {
+        item_id: inventory[item_id]["stock"]
+        for item_id in requested
+    }
+
+    try:
+        for item_id, quantity in requested.items():
+            updated = update_item_stock(
+                inventory, item_id, -quantity
+            )
+
+            if not updated:
+                raise ValueError(
+                    "Stock update failed. "
+                    "Checkout was not completed."
+                )
+
+    except Exception:
+        # Restore stock if an update fails.
+        for item_id, stock in original_stock.items():
+            inventory[item_id]["stock"] = stock
+        raise
+
+    cart.clear()
+
+    return {
+        "status": "SUCCESS",
+        "receipt": receipt,
+        "total": totals["total"],
+    }
+
+
+def show_transaction_summary(logs):
+    """Display recorded checkout outcomes."""
+    if not logs:
+        print("No checkout attempts recorded yet.")
+        return
+
+    successful = summarize_logs(
+        logs,
+        lambda entry: entry["status"] == "SUCCESS",
+    )
+
+    print(f"\nCheckout attempts: {len(logs)}")
+    print(f"Successful: {len(successful)}")
+    print(f"Unsuccessful: {len(logs) - len(successful)}")
+
+    for entry in logs:
+        print(
+            f"{entry['timestamp']} | "
+            f"{entry['status']} | "
+            f"{entry['details']}"
+        )
+
+
+def main():
+    inventory = create_inventory()
+    cart = []
+    logs = []
+
+    while True:
+        print("\n================================")
+        print("          CAMPUSCART")
+        print("================================")
+        print("1. View Inventory")
+        print("2. Add Item to Cart")
+        print("3. View Cart")
+        print("4. Checkout")
+        print("5. Remove Item from Cart")
+        print("6. View Available Products by Price")
+        print("7. View Transaction Summary")
+        print("8. Exit")
 
         try:
-            qty = int(input("Enter quantity: "))
-        except ValueError:
-            print("Please enter a valid number.\n")
-            continue
+            choice = input(
+                "Select an option (1-8): "
+            ).strip()
 
-        already_in_cart = 0
-        for entry in cart:
-            if entry["id"] == item_id:
-                already_in_cart += entry["qty"]
+            if choice == "1":
+                show_inventory(inventory)
 
-        remaining_stock = inventory[item_id]["stock"] - already_in_cart
+            elif choice == "2":
+                item_id = read_product_id(inventory)
 
-        if qty > remaining_stock:
-            print(f"Not enough stock. Only {remaining_stock} available.\n")
-            continue
+                selected = sum(
+                    entry["qty"]
+                    for entry in cart
+                    if entry["id"] == item_id
+                )
 
-        subtotal = inventory[item_id]["price"] * qty
-        cart.append({"id": item_id, "qty": qty, "subtotal": subtotal})
-        print(f"Added {qty} x {inventory[item_id]['name']} to cart.\n")
+                remaining = inventory[item_id]["stock"] - selected
 
-    elif choice == "3":
-        if not cart:
-            print("Your cart is empty.\n")
-        else:
-            print(f"\n{'Product':<18}{'Qty':<6}{'Subtotal':<10}")
-            print("-" * 34)
-            cart_total = 0
-            for entry in cart:
-                name = inventory[entry["id"]]["name"]
-                print(f"{name:<18}{entry['qty']:<6}₦{entry['subtotal']:<9}")
-                cart_total += entry["subtotal"]
-            print("-" * 34)
-            print(f"TOTAL: ₦{cart_total}\n")
+                if remaining <= 0:
+                    raise ValueError(
+                        "No more stock is available for this product."
+                    )
 
-    elif choice == "4":
-        if not cart:
-            print("Your cart is empty. Add items before checking out.\n")
-        else:
-            total = 0
-            print("\n" + "=" * 34)
-            print("             RECEIPT")
-            print("=" * 34)
-            print(f"{'Product':<18}{'Qty':<6}{'Subtotal':<10}")
-            print("-" * 34)
-            for entry in cart:
-                item_name = inventory[entry["id"]]["name"]
-                print(f"{item_name:<18}{entry['qty']:<6}₦{entry['subtotal']:<9}")
-                total += entry["subtotal"]
-            print("-" * 34)
+                quantity = read_quantity(
+                    f"Enter quantity (available: {remaining}): ",
+                    remaining,
+                )
 
-            if total > 2000:
-                discount = total * 0.1
-                total -= discount
-                print(f"{'Discount (10%)':<24}-₦{discount:<9}")
+                add_to_cart(
+                    cart, inventory, item_id, quantity
+                )
 
-            print(f"{'TOTAL':<24}₦{total:<9}")
-            print("=" * 34)
-            print("  Thank you for using CampusCart!")
-            print("=" * 34 + "\n")
+                print(
+                    f"Added {quantity} x "
+                    f"{inventory[item_id]['name']} to cart."
+                )
 
-            for entry in cart:
-                inventory[entry["id"]]["stock"] -= entry["qty"]
-            cart = []
+            elif choice == "3":
+                show_cart(cart, inventory)
 
-    elif choice == "5":
-        print("Goodbye!")
-        break
+            elif choice == "4":
+                result = checkout_cart(
+                    cart,
+                    inventory,
+                    audit_log=logs,
+                )
 
-    else:
-        print("Invalid option. Please choose 1-5.\n")
+                print("\n" + result["receipt"])
+
+            elif choice == "5":
+                if not cart:
+                    raise ValueError(
+                        "Your cart is empty. "
+                        "There is nothing to remove."
+                    )
+
+                item_id = read_product_id(
+                    inventory,
+                    "Enter product ID to remove: ",
+                )
+
+                selected = sum(
+                    entry["qty"]
+                    for entry in cart
+                    if entry["id"] == item_id
+                )
+
+                if selected == 0:
+                    raise ValueError(
+                        "This product is not in your cart."
+                    )
+
+                quantity = read_quantity(
+                    f"Enter quantity to remove (in cart: {selected}): ",
+                    selected,
+                )
+
+                remove_from_cart(
+                    cart, inventory, item_id, quantity
+                )
+
+                print(
+                    f"Removed {quantity} x "
+                    f"{inventory[item_id]['name']} from cart."
+                )
+
+            elif choice == "6":
+                available = filter_in_stock(inventory)
+
+                if available:
+                    show_inventory(sort_by_price(available))
+                else:
+                    print("No products are currently in stock.")
+
+            elif choice == "7":
+                show_transaction_summary(logs)
+
+            elif choice == "8":
+                print("Goodbye!")
+                break
+
+            else:
+                print(
+                    "Invalid option. "
+                    "Please enter a number from 1 to 8."
+                )
+
+        except ValueError as error:
+            print(f"Cannot complete action: {error}")
+
+        except (EOFError, KeyboardInterrupt):
+            print("\nSession ended. Goodbye!")
+            break
+
+
+if __name__ == "__main__":
+    main()
