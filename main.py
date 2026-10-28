@@ -20,8 +20,7 @@ from cart import (
     stream_receipt_lines,
 )
 
-from logger import log_transaction, summarize_logs
-
+from utils.logger import log_transaction, summarize_logs
 
 def create_inventory():
     """Create fresh inventory for each application session."""

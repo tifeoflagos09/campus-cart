@@ -1,12 +1,17 @@
 """Shopping cart operations, independent of the CLI and Streamlit."""
 
+from datetime import datetime, timezone
 from math import isfinite
+from uuid import uuid4
 
 from models.item import Item, validate_quantity
+from models.payment import PaymentMethod
+from utils.logger import log_transaction
+from utils.receipt import stream_receipt_lines
 
 
 class ShoppingCart:
-    """Manage products without deducting stock before checkout."""
+    """Manage products and complete simulated checkout."""
 
     def __init__(self):
         self._items = {}
@@ -65,7 +70,7 @@ class ShoppingCart:
         self._items.clear()
 
     def validate_items(self):
-        """Recheck availability before a future checkout operation."""
+        """Recheck availability before checkout."""
         if self.is_empty:
             raise ValueError(
                 "Your cart is empty. Add items before checkout."
@@ -105,3 +110,92 @@ class ShoppingCart:
 
     def calculate_total(self):
         return self.calculate_totals()["total"]
+
+    @log_transaction("CHECKOUT")
+    def checkout(self, payment_method):
+        """Complete a simulated payment and preserve its receipt."""
+        if not isinstance(payment_method, PaymentMethod):
+            raise ValueError("Select a valid payment method.")
+
+        self.validate_items()
+        totals = self.calculate_totals()
+        entries = self.items
+
+        # Save product details before clearing the cart.
+        saved_items = [
+            {
+                "id": entry["item"].item_id,
+                "name": entry["item"].name,
+                "quantity": entry["quantity"],
+                "unit_price": entry["item"].price,
+                "subtotal": round(
+                    entry["item"].price * entry["quantity"], 2
+                ),
+            }
+            for entry in entries
+        ]
+
+        original_stock = [
+            (entry["item"], entry["item"].stock)
+            for entry in entries
+            if entry["item"].stock is not None
+        ]
+
+        def restore_stock():
+            """Restore physical stock after an unsuccessful checkout."""
+            for item, stock in original_stock:
+                difference = stock - item.stock
+
+                if difference > 0:
+                    item.restock(difference)
+
+        try:
+            # Reserve stock while the local payment simulation runs.
+            for entry in entries:
+                entry["item"].reduce_stock(entry["quantity"])
+
+            payment = payment_method.process_payment(
+                totals["total"]
+            )
+
+            if not isinstance(payment, dict):
+                raise ValueError(
+                    "Payment method returned an invalid result."
+                )
+
+            if payment.get("status") == "DECLINED":
+                restore_stock()
+                return payment
+
+            if (
+                payment.get("status") != "SUCCESS"
+                or payment.get("amount") != totals["total"]
+            ):
+                raise ValueError(
+                    "Payment was not completed correctly."
+                )
+
+            order = {
+                "order_id": uuid4().hex[:12].upper(),
+                "timestamp": datetime.now(timezone.utc).isoformat(
+                    timespec="seconds"
+                ),
+                "items": saved_items,
+                **totals,
+                "payment": payment.copy(),
+            }
+
+            receipt = "\n".join(stream_receipt_lines(order))
+
+        except Exception:
+            restore_stock()
+            raise
+
+        self.clear()
+
+        return {
+            "status": "SUCCESS",
+            "message": "Checkout completed successfully.",
+            "order": order,
+            "receipt": receipt,
+        }
