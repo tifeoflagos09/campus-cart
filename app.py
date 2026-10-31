@@ -72,7 +72,7 @@ def show_product(item, cart):
     with st.container(border=True):
         st.caption(item.category.upper())
         st.subheader(item.name)
-        st.markdown(f"### ₦{item.price:,.2f}")
+        st.metric("Price", f"₦{item.price:,.2f}")
 
         if isinstance(item, PerishableItem):
             st.caption(
@@ -92,7 +92,7 @@ def show_product(item, cart):
 
         if remaining is None:
             st.caption(
-                "Digital product · Unlimited availability"
+                "Service voucher · No physical stock limit"
             )
         else:
             st.caption(
@@ -159,12 +159,74 @@ def show_cart(cart):
 
             st.divider()
 
-        totals = cart.calculate_totals()
+        st.subheader("Order options")
+
+        if cart.coupon_used:
+            coupon = ""
+            st.caption(
+                "CAMPUS15 has been redeemed in this session. "
+                "Normal discounts still apply."
+            )
+        else:
+            coupon = st.text_input(
+                "Coupon code",
+                key="coupon_code",
+                help=(
+                    "CAMPUS15: 15% off a subtotal of at least "
+                    "₦5,000, once per session. "
+                    "Replaces the automatic discount."
+                ),
+            )
+
+        physical = any(
+            entry["item"].stock is not None
+            for entry in cart.items
+        )
+
+        if physical:
+            delivery = st.selectbox(
+                "Delivery option",
+                ["Pickup", "Campus delivery"],
+                key="delivery_method",
+            )
+            st.caption(
+                "Pickup is free. "
+                "Demo campus delivery costs ₦500."
+            )
+        else:
+            delivery = "Pickup"
+            st.info(
+                "Service vouchers have no physical delivery fee. "
+                "The vendor fulfils the service manually."
+            )
+
+        if st.button("Clear cart", width="stretch"):
+            cart.clear()
+            notify("Your cart has been cleared.")
+
+        try:
+            totals = cart.calculate_quote(coupon, delivery)
+        except ValueError as error:
+            st.error(str(error))
+            st.caption(
+                "Correct the order options to continue to payment."
+            )
+            return
 
         st.write(f"Subtotal: ₦{totals['subtotal']:,.2f}")
-        st.write(f"Discount: −₦{totals['discount']:,.2f}")
+        st.write(
+            f"{totals['discount_label']}: "
+            f"−₦{totals['discount']:,.2f}"
+        )
+        st.write(
+            f"Delivery fee: ₦{totals['delivery_fee']:,.2f}"
+        )
         st.metric("Total", f"₦{totals['total']:,.2f}")
-        st.caption("10% off orders above ₦2,000.")
+        st.caption(
+            "10% off above ₦2,000. CAMPUS15 gives 15% off "
+            "from ₦5,000, once per session. "
+            "Discounts do not stack."
+        )
 
         valid = True
 
@@ -189,6 +251,12 @@ def show_cart(cart):
             )
             payment = CashPayment(cash)
 
+            if cash < totals["total"]:
+                st.warning(
+                    "Cash tendered is below the total. "
+                    "Increase it or choose another payment method."
+                )
+
         elif method == "Card":
             payment = CardPayment()
 
@@ -208,6 +276,8 @@ def show_cart(cart):
             try:
                 result = cart.checkout(
                     payment,
+                    coupon_code=coupon,
+                    delivery_method=delivery,
                     audit_log=st.session_state.audit_log,
                 )
 
@@ -223,10 +293,6 @@ def show_cart(cart):
                     )
                 else:
                     st.error(result["message"])
-
-        if st.button("Clear cart", width="stretch"):
-            cart.clear()
-            notify("Your cart has been cleared.")
 
 
 def show_receipts():

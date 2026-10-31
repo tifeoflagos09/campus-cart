@@ -7,6 +7,7 @@ from uuid import uuid4
 from models.item import Item, validate_quantity
 from models.payment import PaymentMethod
 from utils.logger import log_transaction
+from utils.pricing import calculate_quote
 from utils.receipt import stream_receipt_lines
 
 
@@ -15,6 +16,12 @@ class ShoppingCart:
 
     def __init__(self):
         self._items = {}
+        self._coupon_used = False
+
+    @property
+    def coupon_used(self):
+        """Remember successful redemption for this shopping session."""
+        return self._coupon_used
 
     @property
     def items(self):
@@ -67,6 +74,7 @@ class ShoppingCart:
             entry["quantity"] -= quantity
 
     def clear(self):
+        """Clear selected items without resetting coupon usage."""
         self._items.clear()
 
     def validate_items(self):
@@ -79,8 +87,12 @@ class ShoppingCart:
         for entry in self._items.values():
             entry["item"].validate_purchase(entry["quantity"])
 
-    def calculate_totals(self):
-        """Apply 10% off only when the subtotal exceeds 2,000 naira."""
+    def calculate_quote(
+        self,
+        coupon_code="",
+        delivery_method="Pickup",
+    ):
+        """Calculate an order using shared pricing rules."""
         try:
             subtotal = round(
                 sum(
@@ -96,29 +108,44 @@ class ShoppingCart:
         if not valid:
             raise ValueError("Cart total is too large to calculate.")
 
-        discount = (
-            round(subtotal * 0.10, 2)
-            if subtotal > 2000
-            else 0.0
+        return calculate_quote(
+            subtotal,
+            coupon_code=coupon_code,
+            delivery_method=delivery_method,
+            has_physical_items=any(
+                entry["item"].stock is not None
+                for entry in self._items.values()
+            ),
+            coupon_used=self._coupon_used,
         )
 
+    def calculate_totals(self):
+        """Keep the original totals format for existing callers."""
+        quote = self.calculate_quote()
+
         return {
-            "subtotal": subtotal,
-            "discount": discount,
-            "total": round(subtotal - discount, 2),
+            key: quote[key]
+            for key in ("subtotal", "discount", "total")
         }
 
     def calculate_total(self):
         return self.calculate_totals()["total"]
 
     @log_transaction("CHECKOUT")
-    def checkout(self, payment_method):
+    def checkout(
+        self,
+        payment_method,
+        coupon_code="",
+        delivery_method="Pickup",
+    ):
         """Complete a simulated payment and preserve its receipt."""
         if not isinstance(payment_method, PaymentMethod):
             raise ValueError("Select a valid payment method.")
 
         self.validate_items()
-        totals = self.calculate_totals()
+        totals = self.calculate_quote(
+            coupon_code, delivery_method
+        )
         entries = self.items
 
         # Save product details before clearing the cart.
@@ -129,7 +156,8 @@ class ShoppingCart:
                 "quantity": entry["quantity"],
                 "unit_price": entry["item"].price,
                 "subtotal": round(
-                    entry["item"].price * entry["quantity"], 2
+                    entry["item"].price * entry["quantity"],
+                    2,
                 ),
             }
             for entry in entries
@@ -142,7 +170,7 @@ class ShoppingCart:
         ]
 
         def restore_stock():
-            """Restore physical stock after an unsuccessful checkout."""
+            """Restore stock after an unsuccessful checkout."""
             for item, stock in original_stock:
                 difference = stock - item.stock
 
@@ -150,7 +178,7 @@ class ShoppingCart:
                     item.restock(difference)
 
         try:
-            # Reserve stock while the local payment simulation runs.
+            # Reserve stock while the payment simulation runs.
             for entry in entries:
                 entry["item"].reduce_stock(entry["quantity"])
 
@@ -190,6 +218,10 @@ class ShoppingCart:
         except Exception:
             restore_stock()
             raise
+
+        # Consume the coupon only after checkout succeeds.
+        if totals["coupon_code"]:
+            self._coupon_used = True
 
         self.clear()
 
