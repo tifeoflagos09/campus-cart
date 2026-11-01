@@ -71,7 +71,7 @@ def create_catalog():
             "Packaged Biscuits",
             500,
             20,
-            today + timedelta(days=30),
+            today - timedelta(days=1),
             "Food & drinks",
         ),
 
