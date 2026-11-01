@@ -102,7 +102,7 @@ class CardPayment(PaymentMethod):
                 "DECLINED",
                 "Card",
                 amount,
-                "Simulated card payment declined.",
+                "Your payment could not be completed. Please try again or use another payment method.",
             )
 
         return payment_result(
@@ -130,7 +130,7 @@ class MobileMoneyPayment(PaymentMethod):
                 "DECLINED",
                 "Mobile money",
                 amount,
-                "Simulated mobile money payment declined.",
+                "Your payment could not be completed. Please try again or use another payment method.",
             )
 
         return payment_result(

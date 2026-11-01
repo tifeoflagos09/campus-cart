@@ -241,6 +241,7 @@ def show_cart(cart):
             ["Cash", "Card", "Mobile money"],
         )
 
+        # Payment method selection and decline simulation
         if method == "Cash":
             cash = st.number_input(
                 "Cash tendered (₦)",
@@ -249,6 +250,7 @@ def show_cart(cart):
                 step=100.0,
                 key="cash_tendered",
             )
+
             payment = CashPayment(cash)
 
             if cash < totals["total"]:
@@ -258,10 +260,24 @@ def show_cart(cart):
                 )
 
         elif method == "Card":
-            payment = CardPayment()
+            simulate_decline = st.checkbox(
+                "Simulate declined card payment",
+                key="decline_card",
+            )
+
+            payment = CardPayment(
+                approved=not simulate_decline
+            )
 
         else:
-            payment = MobileMoneyPayment()
+            simulate_decline = st.checkbox(
+                "Simulate declined mobile money payment",
+                key="decline_mobile_money",
+            )
+
+            payment = MobileMoneyPayment(
+                approved=not simulate_decline
+            )
 
         st.caption(
             "Demonstration only. No real payment is collected."
