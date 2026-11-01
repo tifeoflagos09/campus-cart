@@ -1,81 +1,178 @@
-# CampusCart
-
-> A command-line tool that lets students browse campus vendor products, build a cart, and check out with a receipt.
-
----
+# CampusCart 🛒
+### Your Campus, Your Essentials
 
 ## Overview
 
-CampusCart is a command-line tool that helps students shop from campus vendors quickly and accurately, browsing available products, building a cart, and checking out with an itemized receipt, without needing a physical point-of-sale system.
+CampusCart is a campus shopping platform built with Python and Streamlit. It provides students with a convenient way to browse products and services offered by campus vendors, add items to a shopping cart, and complete a simulated checkout.
 
-## Problem Statement
+The application also helps demonstrate how vendors can manage product availability, monitor stock levels, and handle orders through a simple digital shopping experience.
 
-Campus vendors, including small food sellers and pop-up shops, often manage sales manually, leading to slow service, pricing errors, and no clear record of what was purchased. CampusCart addresses this by giving students a simple, self-service way to browse a vendor's stock and complete a purchase, while automatically keeping the vendor's inventory accurate behind the scenes.
+## The Problem
+
+Students often have to visit different vendors or ask around to find products and services available on campus. They may need to confirm prices, check availability, and arrange purchases manually.
+
+For campus vendors, managing products, tracking stock, and keeping records of sales can also become difficult when handled manually.
+
+## The Solution
+
+CampusCart brings campus shopping into one platform.
+
+Students can browse available products, search by name, filter by category, add items to their cart, and complete a checkout process.
+
+The application also includes inventory checks, expiry-date validation, pricing rules, simulated payment methods, and transaction receipts.
 
 ## Target Users
 
-- Students shopping from campus vendors
-- Student-run businesses on campus
-- Pop-up vendors selling food, snacks, or accessories
+- **Students:** People who need convenient access to everyday campus products and services.
+- **Campus vendors:** Sellers who provide products and services to students.
+- **Student-run businesses:** Small businesses operating within campus communities.
 
-## Core Features
+## Key Features
 
-- View available products with price and stock
-- Add items to a cart, with stock validated in real time
-- Review the cart and running total before checkout
-- Generate an itemized receipt with automatic discounts
-- Inventory updates automatically after checkout
+- **Product catalogue:** Browse products across different categories.
+- **Product search:** Find products by name.
+- **Category filtering:** Explore products by category.
+- **Price sorting:** Sort products based on price.
+- **Shopping cart:** Add products, adjust quantities, and remove items.
+- **Automatic discounts:** Apply eligible discounts during checkout.
+- **Coupon codes:** Redeem supported promotional codes.
+- **Inventory management:** Track product quantities and prevent purchases beyond available stock.
+- **Expiry-date validation:** Prevent expired perishable products from being purchased.
+- **Multiple payment options:** Demonstrate cash, card, and mobile money payment flows.
+- **Order receipts:** View and download transaction receipts.
+- **Transaction summary:** Review completed transactions within the active session.
 
-## Value Proposition
+## Product Categories
 
-- **Fast setup** — no installation or training needed to browse and buy
-- **Accurate stock checks** — prevents buying more than what's available, even across multiple additions to the cart
-- **Clear receipts** — itemized, with discounts applied automatically
-- **Built for campus life** — designed around how students actually shop on the go
+CampusCart includes sample products and services across five categories:
 
-## User Personas
+1. Stationery
+2. Campus merchandise
+3. Tech accessories
+4. Food and drinks
+5. Digital services
 
-| Persona | Role | Core Need |
-| :--- | :--- | :--- |
-| **Customer** | Student purchasing from a vendor | A quick, accurate way to browse products and check out with a clear total |
-| **Vendor** | Campus food or goods seller | Inventory that stays accurate without manual recordkeeping after each sale |
+## Pricing and Checkout Rules
 
-## Proposed CLI Interface
+The application demonstrates the following pricing rules:
 
+- **Automatic discount:** 10% discount on qualifying orders with a subtotal above ₦2,000.
+- **Coupon discount:** The `CAMPUS15` coupon provides 15% off qualifying orders with a subtotal of at least ₦5,000.
+- **Discount interaction:** When the coupon is applied, it replaces the automatic discount.
+- **Campus delivery:** A demonstration delivery fee of ₦500 applies when campus delivery is selected.
+- **Pickup:** Free pickup option.
+- **Digital services:** Digital-only orders do not attract a delivery fee.
+
+## Technology Stack
+
+- **Python:** Core application logic and business rules.
+- **Streamlit:** Web application interface.
+- **Object-Oriented Programming:** Product, cart, inventory, and payment models.
+- **Python unittest:** Automated testing.
+
+## Project Structure
+
+```text
+campus-cart/
+│
+├── app.py
+├── catalog.py
+├── models/
+├── utils/
+├── tests/
+├── requirements.txt
+└── README.md
 ```
-================================
-CAMPUSCART
-1. View Inventory
-2. Add Item to Cart
-3. View Cart
-4. Checkout
-5. Exit
 
-Select an option (1-5): _
-```
 ## Getting Started
 
-The CLI application has been built in Python. To run it:
+Follow these steps to run CampusCart locally.
 
-​```
-python main.py
-​```
+### Prerequisites
 
-This launches the interactive menu shown below.
+- Python installed on your computer.
+- Git installed on your computer.
+- A terminal or command prompt.
 
-## CLI Demo
+### 1. Clone the repository
 
-### Viewing Inventory
-![View inventory](screenshots/view-inventory-demo.png)
+```bash
+git clone https://github.com/tifeoflagos09/campus-cart.git
+```
 
-### Adding an Item to Cart
-![Add to cart](screenshots/add-to-cart-demo.png)
+### 2. Enter the project directory
 
-### Viewing the Cart
-![View cart](screenshots/view-cart-demo.png)
+```bash
+cd campus-cart
+```
 
-### Checkout with Receipt
-![Checkout receipt](screenshots/checkout-demo.png)
+### 3. Create a virtual environment
 
-### Exiting the Program
-![Exit confirmation](screenshots/exit-demo.png)
+```bash
+python -m venv .venv
+```
+
+### 4. Activate the virtual environment
+
+For Windows:
+
+```bash
+.venv\Scripts\activate
+```
+
+### 5. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 6. Run the application
+
+```bash
+streamlit run app.py
+```
+
+The application should open in your browser. If it does not, Streamlit will provide a local URL in your terminal.
+
+## Running the Tests
+
+CampusCart includes automated tests for important application functionality, including product expiry, inventory, shopping cart operations, pricing, payments, and receipts.
+
+Run the test suite using:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+**Latest local test result:** 59 tests passed.
+
+## Current Limitations
+
+CampusCart is a capstone demonstration project. Some features are simulated rather than connected to live services.
+
+- Payments are simulated; no real money is collected.
+- Product, cart, and transaction data are held within the active browser session.
+- The product catalogue contains sample data.
+- Digital services are represented through vouchers rather than live service fulfilment.
+- Delivery is demonstrated through a checkout fee; there is no live delivery integration.
+
+## Future Improvements
+
+Possible improvements include:
+
+- Database integration for persistent product, customer, and order records.
+- Vendor dashboards for managing products and sales.
+- User registration and authentication.
+- Integration with a real payment gateway.
+- Order tracking and customer notifications.
+- Live campus delivery coordination.
+- Product images and richer product descriptions.
+- Deployment for access beyond a local development environment.
+
+## Author
+
+**Boluwatife Ajose**
+
+Developed as a capstone project through the DataEpic Mentorship Program.
+
+
